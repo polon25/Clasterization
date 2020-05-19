@@ -1,2 +1,2 @@
-# Clasterization
-DAMI lectures' project. A C++ program for clasterization using cosine measure.
+# Clusterization
+DAMI lectures' project. A C++ program for clusterization using cosine measure.
