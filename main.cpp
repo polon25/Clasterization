@@ -1,7 +1,7 @@
 //============================================================================
 // Name        : main.cpp
 // Author      : Jacek Pi³ka
-// Description : DAMI Project
+// Description : DAMI Project -> clusterization using cosine measure
 // Arguments: filePath, number of header rows, number of columns with labels, delimiter, epsilon, k, filePathOut
 //============================================================================
 
