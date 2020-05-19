@@ -2,7 +2,7 @@
 // Name        : main.cpp
 // Author      : Jacek Pi³ka
 // Description : DAMI Project
-// Arguments: filePath, number of header rows, number of columns with labels, delimiter, epsilon, number of iteration since cluster number doesn't change
+// Arguments: filePath, number of header rows, number of columns with labels, delimiter, epsilon, k
 //============================================================================
 
 #include "data.h"
@@ -18,7 +18,7 @@ int main (int argc, char *arg[]){
 	int labelColumns=atoi(arg[3]); //Number of columns with labels
 	char delimiter=*arg[4]; //Delimiter char
 	float epsilon=atof(arg[5]); //Epsilon value
-	int tWait=atof(arg[6]); //Number of iteration to wait since stopping changing clusters number to stop algorithm
+	int k=atoi(arg[6]); //k neighbors
 
 	/**
 	 * Importing data from file
@@ -28,7 +28,7 @@ int main (int argc, char *arg[]){
 	cout<<"Header's rows: "<<headerRows<<endl;
 	cout<<"Label columns: "<<labelColumns<<endl;
 	cout<<"Epsilon: "<<epsilon<<endl;
-	cout<<"Iterations to wait: "<<tWait<<endl<<endl;
+	cout<<"k:"<<k<<endl<<endl;
 	cout<<"Reading file: "<<filePath<<endl;
 	vector<vector<string>> dataRaw=readData(filePath,headerRows,delimiter);
 	vector<string> row=dataRaw[0];
@@ -50,7 +50,7 @@ int main (int argc, char *arg[]){
 			data[i][ii]=dataVector[ii];
 		}
 		data[i][attributeSize]=vectorLength(dataVector,attributeSize);
-		data[i][attributeSize+1]=i;
+		data[i][attributeSize+1]=-1; //Initialize claster ID value with -1
 		/**
 		//Normalize vector
 		float vectorLengthTmp=vectorLength(dataVector);
@@ -96,120 +96,115 @@ int main (int argc, char *arg[]){
 	 */
 
 	cout<<"Starting clasterization process"<<endl;
-	uint16_t clusterNumPrev=0;
-	int algorithmStopCounter=0;
+	int currentClusterID=0;
 	//Main algorithm's loop
-	while(true){
-		//Creating tmp (working) array
-		float dataTmp[dataNum][attributeSize+2];
-		for (int i=0;i<dataNum;i++){
-			for (int ii=0; ii<attributeSize+2;ii++){
-				dataTmp[i][ii]=data[i][ii];
-			}
-		}
 
-		//Iteration through each object
-		//Finding it's neighbors and setting it's cluster ID
-		for (int i=0; i<dataNum; i++){
-			//Calculate boundary values for potential close vectors
-			float minBound=epsilon*data[i][attributeSize];
-			float maxBound=data[i][attributeSize]/epsilon;
+	//Iteration through each object
+	//Finding it's neighbors and setting it's cluster ID
+	for (int i=0; i<dataNum; i++){
+		//Calculate boundary values for potential close vectors
+		float minBound=epsilon*data[i][attributeSize];
+		float maxBound=data[i][attributeSize]/epsilon;
 
-			//Search for potential close vectors and save their IDs
-			vector<int> closeCandidates;
-			//To save the memory/time iterate from ith element in + and - directions
-			for (int ii=i-1;ii>=0;ii--){
-				if(data[ii][attributeSize]>=minBound){
-					closeCandidates.push_back(ii);
-				}
-				else{
-					break;
-				}
-			}
-			for (int ii=i+1;ii<dataNum;ii++){
-				if(data[ii][attributeSize]<=maxBound){
-					closeCandidates.push_back(ii);
-				}
-				else{
-					break;
-				}
-			}
-			//If there's no candidates move to another object
-			if(closeCandidates.size()<1)
-				continue;
+		/**
+		 * Analyzing cosine values of potential close vectors
+		 * Two for loops to iterate from ith vector in both directions
+		 */
 
-			//Analyzing the cosine measure of potential close vectors to determine if they're close ones
-			vector<int> closeVectors;
-			for (uint16_t ii=0;ii<closeCandidates.size();ii++){
+		vector<objectInfo> closeVectors; //IDs of close vectors
+		for (int ii=i-1;ii>=0;ii--){
+			if(data[ii][attributeSize]>=minBound){//If potential close vector
+				//Calculate scalar product of vectors
 				float product=0;
 				for (int iii=0;iii<attributeSize;iii++){
-					product+=data[i][iii]*data[closeCandidates[ii]][iii];
+					product+=data[i][iii]*data[ii][iii];
 				}
-				float cosine=product/(data[i][attributeSize]*data[closeCandidates[ii]][attributeSize]);
-				if (cosine>=epsilon){
-					closeVectors.push_back(closeCandidates[ii]);
-				}
-			}
-
-			//If there's no close vectors
-			if(closeVectors.size()<1)
-				continue;
-
-			//KNN on vectors
-			vector<clusterInfo> clusterSizes;
-			for (uint16_t ii=0; ii<closeVectors.size(); ii++){
-				//Check if cluster is already in neighborhood
-				bool notNeighbour=true;
-				for (uint16_t iii=0;iii<clusterSizes.size();iii++){
-					if(clusterSizes[iii].id==data[closeVectors[ii]][attributeSize+1]){
-						clusterSizes[iii].size++;
-						notNeighbour=false;
-					}
-				}
-				//If not, add to vector new cluster
-				if(notNeighbour){
-					clusterInfo cluster={(int)data[closeVectors[ii]][attributeSize+1],1};
-					clusterSizes.push_back(cluster);
+				float cosine=product/(data[i][attributeSize]*data[ii][attributeSize]);
+				if (cosine>=epsilon){//If cosine value is enough iith vector is close
+					objectInfo object; object.id=ii; object.cosineVal=cosine;
+					closeVectors.push_back(object);
 				}
 			}
-			sort(clusterSizes.begin(),clusterSizes.end(),compareClusters);
-			dataTmp[i][attributeSize+1]=clusterSizes[0].id;
-		}
-		for (int i=0;i<dataNum;i++){
-			for (int ii=0; ii<attributeSize+2;ii++){
-				data[i][ii]=dataTmp[i][ii];
-			}
-		}
-
-		//Count clasters sizes
-		vector<int> clasterSizes;
-		//Prepare clusters id array
-		float clusterArray[dataNum];
-		for (int ii=0; ii<dataNum; ii++){
-			clusterArray[ii]=data[ii][attributeSize+1];
-		}
-		//Calculate cluster sizes
-		for (int ii=0; ii<dataNum; ii++){
-			int clasterSize=countItem(ii, clusterArray, dataNum);
-			if (clasterSize>0)
-				clasterSizes.push_back(clasterSize);
-		}
-		//cout<<clasterSizes.size()<<endl;
-
-		//If number of clusters doesn't change, end algorithm
-		if (clasterSizes.size()==clusterNumPrev){
-			if(algorithmStopCounter>tWait){
+			else{//Break loop if we exceed boundary
 				break;
 			}
-			else{
-				algorithmStopCounter++;
+		}
+		for (int ii=i+1;ii<dataNum;ii++){
+			if(data[ii][attributeSize]<=maxBound){//If potential close vector
+				//Calculate scalar product of vectors
+				float product=0;
+				for (int iii=0;iii<attributeSize;iii++){
+					product+=data[i][iii]*data[ii][iii];
+				}
+				float cosine=product/(data[i][attributeSize]*data[ii][attributeSize]);
+				if (cosine>=epsilon){//If cosine value is enough iith vector is close
+					objectInfo object; object.id=ii; object.cosineVal=cosine;
+					closeVectors.push_back(object);
+				}
+			}
+			else{//Break loop if we exceed boundary
+				break;
 			}
 		}
-		else{
-			clusterNumPrev=clasterSizes.size();
-			algorithmStopCounter=0;
+
+		//If there's no close vectors, move to next object
+		if((int)closeVectors.size()<k)
+			continue;
+
+		//Sort neighboors by their cosine value
+		objectInfo idAndCosine[closeVectors.size()]; //Object + cluster ID (as length, cause there's no need to create new class and functions)
+		for (int ii=0;ii<(int)closeVectors.size();ii++){
+			idAndCosine[ii].id=closeVectors[ii].id;
+			idAndCosine[ii].cosineVal=closeVectors[ii].cosineVal;
+		}
+		int n = sizeof(idAndCosine)/sizeof(idAndCosine[0]);
+		sort(idAndCosine, idAndCosine+n, compareObjects);
+
+		/**
+		 * Clusterization:
+		 *
+		 * 1. Check if any of k close vectors is already in cluster
+		 * 2. If yes, than the ith object will be added to this cluster alongside other non clustered objects
+		 * 3. If no, create new cluster and add every neighbor
+		 */
+
+		//Check if any of k close vectors is already in cluster
+		int currentClusterIDTmp=currentClusterID;
+		for(int ii=0; ii<k;ii++){
+			if (data[idAndCosine[ii].id][attributeSize+1]>=0){
+				currentClusterIDTmp=data[idAndCosine[ii].id][attributeSize+1];
+				break;
+			}
+		}
+
+		//Add ith object to the cluster alongside other non clustered objects
+		data[i][attributeSize+1]=currentClusterIDTmp;
+		for(int ii=0; ii<k;ii++){
+			if (data[idAndCosine[ii].id][attributeSize+1]<0){
+				data[idAndCosine[ii].id][attributeSize+1]=currentClusterIDTmp;
+			}
+		}
+
+		//If new cluster was create, increase the future cluster ID by 1
+		if(currentClusterIDTmp==currentClusterID){
+			currentClusterID++;
 		}
 	}
+
+	//Count clasters sizes
+	vector<int> clasterSizes;
+	//Prepare clusters id array
+	float clusterArray[dataNum];
+	for (int ii=0; ii<dataNum; ii++){
+		clusterArray[ii]=data[ii][attributeSize+1];
+	}
+	//Calculate cluster sizes
+	for (int ii=0; ii<dataNum; ii++){
+		int clasterSize=countItem(ii, clusterArray, dataNum);
+		if (clasterSize>0)
+			clasterSizes.push_back(clasterSize);
+	}
+	//cout<<clasterSizes.size()<<endl;
 
 	/*************************
 	Preparing data for saving:
@@ -253,14 +248,14 @@ int main (int argc, char *arg[]){
 	Saving data to the new csv file
 	*************************/
 
-	float **dataTmp=new float *[dataNum];
+	float **dataTmpSave=new float *[dataNum];
 	for(int i = 0; i<dataNum; i++){
-	    dataTmp[i] = new float[attributeSize+1];
+		dataTmpSave[i] = new float[attributeSize+1];
 	    for (int ii=0; ii<attributeSize+2; ii++){
-	    	dataTmp[i][ii]=data[i][ii];
+	    	dataTmpSave[i][ii]=data[i][ii];
 	    }
 	}
-	writeData(dataTmp,dataNum,attributeSize+2,"E:\\Users\\Polonius\\Downloads\\data.csv");
+	writeData(dataTmpSave,dataNum,attributeSize+2,"E:\\Users\\Polonius\\Downloads\\data.csv");
 	cout<<"Data Saved"<<endl;
 
 	return 0;

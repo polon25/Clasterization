@@ -15,7 +15,10 @@ bool compareLength(dataVec data1, dataVec data2){
     return (data1.length < data2.length);
 }
 bool compareClusters(clusterInfo cluster1, clusterInfo cluster2){
-    return (cluster1.size < cluster2.size);
+    return (cluster1.size > cluster2.size);
+}
+bool compareObjects(objectInfo object1, objectInfo object2){
+    return (object1.cosineVal > object2.cosineVal);
 }
 
 int countItem(float item, float *dataArray, int rows){
