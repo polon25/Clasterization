@@ -2,7 +2,7 @@
 // Name        : main.cpp
 // Author      : Jacek Pi³ka
 // Description : DAMI Project
-// Arguments: filePath, number of header rows, number of columns with labels, delimiter, epsilon, k
+// Arguments: filePath, number of header rows, number of columns with labels, delimiter, epsilon, k, filePathOut
 //============================================================================
 
 #include "data.h"
@@ -19,6 +19,7 @@ int main (int argc, char *arg[]){
 	char delimiter=*arg[4]; //Delimiter char
 	float epsilon=atof(arg[5]); //Epsilon value
 	int k=atoi(arg[6]); //k neighbors
+	string filePathOut=arg[7];
 
 	/**
 	 * Importing data from file
@@ -255,7 +256,7 @@ int main (int argc, char *arg[]){
 	    	dataTmpSave[i][ii]=data[i][ii];
 	    }
 	}
-	writeData(dataTmpSave,dataNum,attributeSize+2,"E:\\Users\\Polonius\\Downloads\\data.csv");
+	writeData(dataTmpSave,dataNum,attributeSize+2,filePathOut);
 	cout<<"Data Saved"<<endl;
 
 	return 0;
