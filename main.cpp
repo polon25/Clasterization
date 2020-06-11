@@ -3,6 +3,7 @@
 // Author      : Jacek Pi³ka
 // Description : DAMI Project -> clusterization using cosine measure
 // Arguments: filePath, number of header rows, number of columns with labels, delimiter, epsilon, k, filePathOut
+// Beta version for testing new ideas
 //============================================================================
 
 #include "data.h"
@@ -92,16 +93,31 @@ int main (int argc, char *arg[]){
 	}
 	//At the end -> sorted 2D data float array
 
+	cout<<"Create matrix"<<endl;
+
+	//Matrix of neighbors (0 - not neighbor, 1 - neighbor)
+	//First id - neighbors of i-th object, Second id - objects which have i-th element as their neighbor
+	vector<uint8_t*> neighborMatrix; //Cause it's to big array to do it the "normal way"
+
+	for (int i=0; i<dataNum; i++){
+		neighborMatrix.push_back(new uint8_t[dataNum]);
+		for (int ii=0; ii<dataNum; ii++){
+			neighborMatrix[i][ii]=0;
+		}
+	}
+
+	cout<<"Matrix created"<<endl;
+	int objectClassTable[dataNum]={NOISE};
+
 	/**
-	 * KNN clasterization using cosine measure
+	 * KNN clusterization using cosine measure
 	 */
 
-	cout<<"Starting clasterization process"<<endl;
+	cout<<"Starting clusterization process"<<endl;
 	int currentClusterID=0;
 	//Main algorithm's loop
 
-	//Iteration through each object
-	//Finding it's neighbors and setting it's cluster ID
+	//First main loop -> searching for neighbors and making neighborMatrix
 	for (int i=0; i<dataNum; i++){
 		//Calculate boundary values for potential close vectors
 		float minBound=epsilon*data[i][attributeSize];
@@ -148,10 +164,6 @@ int main (int argc, char *arg[]){
 			}
 		}
 
-		//If there's no close vectors, move to next object
-		if((int)closeVectors.size()<k)
-			continue;
-
 		//Sort neighboors by their cosine value
 		objectInfo idAndCosine[closeVectors.size()]; //Object + cluster ID (as length, cause there's no need to create new class and functions)
 		for (int ii=0;ii<(int)closeVectors.size();ii++){
@@ -160,6 +172,52 @@ int main (int argc, char *arg[]){
 		}
 		int n = sizeof(idAndCosine)/sizeof(idAndCosine[0]);
 		sort(idAndCosine, idAndCosine+n, compareObjects);
+
+		//If less neighbors then k
+		int kTmp=(k>n)? k : n;
+
+		//Add k+ neighbors to neighborMatrix
+		for(int ii=0; ii<n; ii++){
+			if (idAndCosine[ii].cosineVal>=idAndCosine[kTmp-1].cosineVal) //Check if in k+ neigborhood
+				neighborMatrix[i][idAndCosine[ii].id]=1; //Add to neighborMatrix
+			else
+				break;
+		}
+	}
+
+	cout<<"Neighbor matrix completed"<<endl;
+	cout<<"Starting cluster searching"<<endl;
+
+	//Second main loop -> clustering objects
+	//Only core points can initialize cluster, border points can be only added to already existing one
+	for (int i=0; i<dataNum; i++){
+		double kn=0; double rkn=0;//k-neighoors and reversed k-neighoors
+
+		vector<int> neigborsIDs;
+
+		for (int ii=0; ii<dataNum; ii++){
+			kn+=neighborMatrix[i][ii];
+			rkn+=neighborMatrix[ii][i];
+			if (neighborMatrix[i][ii]>0){
+				neigborsIDs.push_back(ii);
+			}
+		}
+
+		//Check the class of object
+		//Only cores can create clusters (but borders can be added to them)
+
+		double ndf=(rkn>0)? kn/rkn : 0;
+
+		if ((kn>=k) & (ndf>=1))
+			objectClassTable[i]=CORE;
+		else if ((kn>=k) & (ndf<1)){
+			objectClassTable[i]=BORDER;
+			continue;
+		}
+		else{
+			objectClassTable[i]=NOISE;
+			continue;
+		}
 
 		/**
 		 * Clusterization:
@@ -171,18 +229,18 @@ int main (int argc, char *arg[]){
 
 		//Check if any of k close vectors is already in cluster
 		int currentClusterIDTmp=currentClusterID;
-		for(int ii=0; ii<k;ii++){
-			if (data[idAndCosine[ii].id][attributeSize+1]>=0){
-				currentClusterIDTmp=data[idAndCosine[ii].id][attributeSize+1];
+		for(int ii=0; ii<(int)neigborsIDs.size();ii++){
+			if (data[neigborsIDs[ii]][attributeSize+1]>=0){
+				currentClusterIDTmp=data[neigborsIDs[ii]][attributeSize+1];
 				break;
 			}
 		}
 
 		//Add ith object to the cluster alongside other non clustered objects
 		data[i][attributeSize+1]=currentClusterIDTmp;
-		for(int ii=0; ii<k;ii++){
-			if (data[idAndCosine[ii].id][attributeSize+1]<0){
-				data[idAndCosine[ii].id][attributeSize+1]=currentClusterIDTmp;
+		for(int ii=0; ii<(int)neigborsIDs.size();ii++){
+			if (data[neigborsIDs[ii]][attributeSize+1]<0){
+				data[neigborsIDs[ii]][attributeSize+1]=currentClusterIDTmp;
 			}
 		}
 
@@ -205,7 +263,6 @@ int main (int argc, char *arg[]){
 		if (clasterSize>0)
 			clasterSizes.push_back(clasterSize);
 	}
-	//cout<<clasterSizes.size()<<endl;
 
 	/*************************
 	Preparing data for saving:

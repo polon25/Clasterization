@@ -4,6 +4,8 @@
 #include <iostream>
 #include <math.h>
 
+enum objectClass {NOISE, BORDER, CORE};
+
 struct dataVec{//Data structure
 	float* vector;
 	float length;
