@@ -253,7 +253,6 @@ int main (int argc, char *arg[]){
 
 		double ndf=(rkn>0)? kn/rkn : 0;
 
-
 		if ((kn>=k) & (ndf>=1))
 			objectClassTable[i]=CORE;
 		else if ((kn>=k) & (ndf<1)){
@@ -296,29 +295,7 @@ int main (int argc, char *arg[]){
 		}
 	}
 
-	cout<<"Clasterization Complete, raw data"<<endl;
-	for (int i=0;i<dataNum;i++){
-		cout<<dataOld[(int)data[i][attributeSize+2]][0]<<','<<dataOld[(int)data[i][attributeSize+2]][1]<<','<<data[i][attributeSize]<<','<<data[i][attributeSize+1]<<endl;
-	}
-
-	/*******
-	 * There is a problem!!! It must be something with preparing data
-	 */
-
-	/**
-	//Count clusters sizes
-	vector<int> clasterSizes;
-	//Prepare clusters id array
-	float clusterArray[dataNum];
-	for (int ii=0; ii<dataNum; ii++){
-		clusterArray[ii]=data[ii][attributeSize+1];
-	}
-	//Calculate cluster sizes
-	for (int ii=0; ii<dataNum; ii++){
-		int clasterSize=countItem(ii, clusterArray, dataNum);
-		if (clasterSize>0)
-			clasterSizes.push_back(clasterSize);
-	}
+	cout<<"Clasterization Complete"<<endl;
 
 	/*************************
 	Preparing data for saving:
@@ -326,7 +303,6 @@ int main (int argc, char *arg[]){
 	Changing cluster ids to from 0
 	*************************/
 
-	/**
 	//Sort data by cluster
 	dataVec idAndCluster[dataNum]; //Object + cluster ID (as length, cause there's no need to create new class and functions)
 	for (int i=0;i<dataNum;i++){
@@ -337,9 +313,9 @@ int main (int argc, char *arg[]){
 	sort(idAndCluster,idAndCluster+n,compareAngle);
 
 	//Writing sorted data to tmp array
-	float dataTmp2Array[dataNum][attributeSize+2];
+	float dataTmp2Array[dataNum][attributeSize+3];
 	for(int i=0; i<dataNum; i++){
-		for(int ii=0; ii<attributeSize+2; ii++){
+		for(int ii=0; ii<attributeSize+3; ii++){
 			dataTmp2Array[i][ii]=idAndCluster[i].vector[ii];
 		}
 	}
@@ -352,12 +328,12 @@ int main (int argc, char *arg[]){
 			currentOldID=dataTmp2Array[i][attributeSize+1];
 			currentNewID++;
 		}
-		for(int ii=0; ii<attributeSize+1; ii++){
+		for(int ii=0; ii<attributeSize+3; ii++){
 			data[i][ii]=dataTmp2Array[i][ii];
 		}
 		data[i][attributeSize+1]=currentNewID;
 	}
-	cout<<"Founded clusters: "<<data[dataNum-1][attributeSize+1]+1<<endl<<endl;**/
+	cout<<"Founded clusters: "<<data[dataNum-1][attributeSize+1]+1<<endl<<endl;
 
 	/*************************
 	Saving data to the new csv file
