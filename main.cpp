@@ -8,11 +8,16 @@
 
 #include "data.h"
 #include "cosine.h"
-#include <algorithm>
+#include <algorithm> //For sort()
+#include <chrono>
+#include <ctime>
 
 using namespace std;
 
 int main (int argc, char *arg[]){
+	//Start counting
+	auto start = std::chrono::system_clock::now();
+
 	//Arguments
 	string filePath=arg[1];
 	int headerRows=atoi(arg[2]); //Number of header lines
@@ -74,7 +79,7 @@ int main (int argc, char *arg[]){
 		//Calculate angle from arbitrary vector, which will be the indicator of potential close vectors
 		data[i][attributeSize]=acos(data[i][0]);
 
-		//Commentary to this method (because it's bigger thinking wrapped into one line of code)
+		//Commentary to this method (because it's a bigger thinking wrapped into one line of code)
 		//First we calculate the scalar product of two vectors, but because the second has only one nonzero part and it's equal 1,
 		//it will be equal simply to respective part of first vector.
 		//a x b = |a| |b| cos(alpha), but because they're both normalized, cos(alpha)=a x b = a[0]
@@ -127,7 +132,7 @@ int main (int argc, char *arg[]){
 	int objectClassTable[dataNum]={NOISE};
 
 	/**
-	 * KNN clusterization using cosine measure
+	 * k+ NBC clusterization using cosine measure
 	 */
 
 	cout<<"Starting clusterization process"<<endl;
@@ -151,11 +156,9 @@ int main (int argc, char *arg[]){
 				//Calculate Euclidean Distance
 				float sum=0;
 				for (int iii=0;iii<attributeSize;iii++){
-					//float a=data[i][iii]-data[ii][iii];
 					float a=dataOld[(int)data[i][attributeSize+2]][iii]-dataOld[(int)data[ii][attributeSize+2]][iii];
 					sum+=a*a;
 				}
-				//sum=sqrt(sum);
 				sum=sqrt(sum)/dataOld[(int)data[i][attributeSize+2]][attributeSize];
 				if (sum<=borderEuclidean){//Check if object is close enough
 					objectInfo object; object.id=ii; object.euclideanDistance=sum;
@@ -171,11 +174,9 @@ int main (int argc, char *arg[]){
 				//Calculate Euclidean Distance
 				float sum=0;
 				for (int iii=0;iii<attributeSize;iii++){
-					//float a=data[i][iii]-data[ii][iii];
 					float a=dataOld[(int)data[i][attributeSize+2]][iii]-dataOld[(int)data[ii][attributeSize+2]][iii];
 					sum+=a*a;
 				}
-				//sum=sqrt(sum);
 				sum=sqrt(sum)/dataOld[(int)data[i][attributeSize+2]][attributeSize];
 				if (sum<=borderEuclidean){//Check if object is close enough
 					objectInfo object; object.id=ii; object.euclideanDistance=sum;
@@ -210,27 +211,6 @@ int main (int argc, char *arg[]){
 	}
 
 	cout<<"Neighbor matrix completed"<<endl;
-
-	/**
-	//Test matrix with respect to dataOld
-	vector<int*> neighborMatrix2; //Cause it's to big array to do it the "normal way"
-
-	for (int i=0; i<dataNum; i++){
-		neighborMatrix2.push_back(new int[dataNum]);
-	}
-	for (int i=0; i<dataNum; i++){
-		for (int ii=0; ii<dataNum; ii++){
-			neighborMatrix2[(int)data[i][attributeSize+2]][(int)data[ii][attributeSize+2]]=neighborMatrix[i][ii];
-		}
-	}
-
-	for (int i=0;i<dataNum;i++){
-		for (int ii=0;ii<dataNum;ii++){
-			cout<<neighborMatrix2[i][ii]<<" ";
-		}
-		cout<<endl;
-	}**/
-
 	cout<<"Starting cluster searching"<<endl;
 
 	//Second main loop -> clustering objects
@@ -350,6 +330,11 @@ int main (int argc, char *arg[]){
 	}
 	writeData(dataTmpSave,dataNum,attributeSize+2,filePathOut);
 	cout<<"Data Saved"<<endl;
+
+	auto end = std::chrono::system_clock::now();
+	chrono::duration<double> elapsed_seconds = end-start;
+
+	cout<<"elapsed time: " << elapsed_seconds.count() << "s\n";
 
 	return 0;
 }
