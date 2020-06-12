@@ -11,14 +11,14 @@ float vectorLength(float* dataVector,int length){
 	return sum;
 }
 
-bool compareLength(dataVec data1, dataVec data2){
+bool compareAngle(dataVec data1, dataVec data2){
     return (data1.length < data2.length);
 }
 bool compareClusters(clusterInfo cluster1, clusterInfo cluster2){
     return (cluster1.size > cluster2.size);
 }
 bool compareObjects(objectInfo object1, objectInfo object2){
-    return (object1.cosineVal > object2.cosineVal);
+    return (object1.euclideanDistance < object2.euclideanDistance);
 }
 
 int countItem(float item, float *dataArray, int rows){
