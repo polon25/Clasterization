@@ -141,14 +141,17 @@ int main (int argc, char *arg[]){
 
 	int currentClusterID=0;
 	list<int> idLeft; //Id left to be used
+	list<int> idLoop1; //Id in first list
 	for (int i=0; i<dataNum; i++){
 		idLeft.push_back(i);
+		idLoop1.push_back(i);
 	}
-	list<int> idCheck; //Id sorted
+	list<int> idLoop2; //Id sorted
 
 	//Main algorithm's loop
 	//First main loop -> searching for neighbors and making neighborMatrix
-	for (int i=0; i<dataNum; i++){
+	//for (int i : idLoop1){ //Alternative
+	for (int i=1; i<dataNum; i++){
 		//Calculate boundary values for potential close vectors
 		float minAngle=data[i][attributeSize]-borderAngle;
 		float maxAngle=data[i][attributeSize]+borderAngle;
@@ -215,7 +218,16 @@ int main (int argc, char *arg[]){
 				//Move id from list of all ids to list of "sorted" id
 				list<int>::iterator idIter=std::find(idLeft.begin(), idLeft.end(), idAndCosine[ii].id);
 				if(idIter!=idLeft.end()){
-					idCheck.push_back(*idIter);
+					//Add to loop2 iteration
+					idLoop2.push_back(*idIter);
+					//Change to be just after current id in this loop
+					list<int>::iterator idIter1=std::find(idLoop1.begin(), idLoop1.end(), i);
+					list<int>::iterator idIter2=std::find(idLoop1.begin(), idLoop1.end(), idAndCosine[ii].id);
+					int tmp=*idIter2;
+					idLoop1.erase(idIter2);
+					idIter1++;
+					idLoop1.insert(idIter1,tmp);
+					//Remove id from 'to use' list
 					idLeft.erase(idIter);
 				}
 			}
@@ -226,9 +238,10 @@ int main (int argc, char *arg[]){
 
 	//Add noise points to idCheck
 	for (int i:idLeft){
-		idCheck.push_back(i);
+		idLoop2.push_back(i);
 	}
 	idLeft.clear();
+	idLoop1.clear();
 
 	cout<<"Neighbor matrix completed"<<endl;
 	end = std::chrono::system_clock::now();
@@ -239,7 +252,7 @@ int main (int argc, char *arg[]){
 	cout<<"Starting clusterization"<<endl;
 	//Second main loop -> clustering objects
 	//Only core points can initialize cluster, border points can be only added to already existing one
-	for (int i : idCheck){ //iterate through idCheck
+	for (int i : idLoop2){ //iterate through idCheck
 		double kn=0; double rkn=0;//k-neighoors and reversed k-neighoors
 
 		vector<int> neigborsIDs;
@@ -299,7 +312,7 @@ int main (int argc, char *arg[]){
 		}
 	}
 
-	idCheck.clear();
+	idLoop2.clear();
 	cout<<"Clasterization Complete"<<endl;
 	end = std::chrono::system_clock::now();
 	elapsed_seconds = end-start;
