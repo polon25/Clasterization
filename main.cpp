@@ -249,6 +249,7 @@ int main (int argc, char *arg[]){
 	cout<<"Elapsed time: " << elapsed_seconds.count() << "s\n";
 	cout<<endl;
 
+	int clasterCount=0; //"When it was clusterized" counter
 	cout<<"Starting clusterization"<<endl;
 	//Second main loop -> clustering objects
 	//Only core points can initialize cluster, border points can be only added to already existing one
@@ -294,6 +295,8 @@ int main (int argc, char *arg[]){
 		for(int ii=0; ii<(int)neigborsIDs.size();ii++){
 			if (data[neigborsIDs[ii]][attributeSize+1]>=0){
 				currentClusterIDTmp=data[neigborsIDs[ii]][attributeSize+1];
+				data[neigborsIDs[ii]][attributeSize]=clasterCount;
+				clasterCount++;
 				break;
 			}
 		}
@@ -303,6 +306,8 @@ int main (int argc, char *arg[]){
 		for(int ii=0; ii<(int)neigborsIDs.size();ii++){
 			if (data[neigborsIDs[ii]][attributeSize+1]<0){
 				data[neigborsIDs[ii]][attributeSize+1]=currentClusterIDTmp;
+				data[neigborsIDs[ii]][attributeSize]=clasterCount;
+				clasterCount++;
 			}
 		}
 
@@ -368,6 +373,7 @@ int main (int argc, char *arg[]){
 	    for (int ii=0; ii<attributeSize+1; ii++){
 	    	dataTmpSave[i][ii]=dataOld[(int)data[i][attributeSize+2]][ii];
 	    }
+	    dataTmpSave[i][attributeSize]=data[i][attributeSize];
 	    dataTmpSave[i][attributeSize+1]=data[i][attributeSize+1];
 	}
 	writeData(dataTmpSave,dataNum,attributeSize+2,filePathOut);
