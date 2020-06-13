@@ -3,15 +3,14 @@
 // Author      : Jacek Pi³ka
 // Description : DAMI Project -> clusterization using cosine measure
 // Arguments: filePath, number of header rows, number of columns with labels, delimiter, epsilon, k, filePathOut
-// Beta version for testing new ideas
 //============================================================================
 
 #include "data.h"
 #include "cosine.h"
 #include <algorithm> //For sort()
-#include <chrono>
-#include <ctime>
 #include <list>
+#include <chrono> //For timing
+#include <ctime>
 
 using namespace std;
 
@@ -71,6 +70,7 @@ int main (int argc, char *arg[]){
 		dataOld[i][attributeSize+2]=i; //Last cell -> original id
 	}
 
+	cout<<"Preparing data, normalization and sorting"<<endl;
 	//Normalize vector and calculate angle from vector [1,0,0,...,0]
 	for(int i=0; i<dataNum; i++){
 		for(int ii=0; ii<attributeSize; ii++){
@@ -85,12 +85,11 @@ int main (int argc, char *arg[]){
 		//it will be equal simply to respective part of first vector.
 		//a x b = |a| |b| cos(alpha), but because they're both normalized, cos(alpha)=a x b = a[0]
 		//Than the angle in radians is calculated using acos
-
 	}
-	//At the end -> 2D array of vectors + length + claster ID
+	//At the end -> 2D array of vectors + angle from [1,0,0,...,0] + claster ID + original data ID
 
 	/**
-	 * Sorting data by vector length
+	 * Sorting data by angle from [1,0,0,...,0] vector
 	 */
 
 	//Sorting
@@ -116,7 +115,12 @@ int main (int argc, char *arg[]){
 	}
 	//At the end -> sorted 2D data float array
 
-	cout<<"Create matrix"<<endl;
+	auto end = std::chrono::system_clock::now();
+	chrono::duration<double> elapsed_seconds = end-start;
+	cout<<"Elapsed time: " << elapsed_seconds.count() << "s\n"<<endl;
+
+
+	cout<<"Create neighbor matrix"<<endl;
 
 	//Matrix of neighbors (0 - not neighbor, 1 - neighbor)
 	//First id - neighbors of i-th object, Second id - objects which have i-th element as their neighbor
@@ -129,14 +133,12 @@ int main (int argc, char *arg[]){
 		}
 	}
 
-	cout<<"Matrix created"<<endl;
 	int objectClassTable[dataNum]={NOISE};
 
 	/**
 	 * k+ NBC clusterization using cosine measure
 	 */
 
-	cout<<"Starting clusterization process"<<endl;
 	int currentClusterID=0;
 	list<int> idLeft; //Id left to be used
 	for (int i=0; i<dataNum; i++){
@@ -145,7 +147,6 @@ int main (int argc, char *arg[]){
 	list<int> idCheck; //Id sorted
 
 	//Main algorithm's loop
-
 	//First main loop -> searching for neighbors and making neighborMatrix
 	for (int i=0; i<dataNum; i++){
 		//Calculate boundary values for potential close vectors
@@ -230,8 +231,12 @@ int main (int argc, char *arg[]){
 	idLeft.clear();
 
 	cout<<"Neighbor matrix completed"<<endl;
-	cout<<"Starting cluster searching"<<endl;
+	end = std::chrono::system_clock::now();
+	elapsed_seconds = end-start;
+	cout<<"Elapsed time: " << elapsed_seconds.count() << "s\n";
+	cout<<endl;
 
+	cout<<"Starting clusterization"<<endl;
 	//Second main loop -> clustering objects
 	//Only core points can initialize cluster, border points can be only added to already existing one
 	for (int i : idCheck){ //iterate through idCheck
@@ -296,6 +301,10 @@ int main (int argc, char *arg[]){
 
 	idCheck.clear();
 	cout<<"Clasterization Complete"<<endl;
+	end = std::chrono::system_clock::now();
+	elapsed_seconds = end-start;
+	cout<<"Elapsed time: " << elapsed_seconds.count() << "s\n";
+	cout<<endl;
 
 	/*************************
 	Preparing data for saving:
@@ -313,8 +322,9 @@ int main (int argc, char *arg[]){
 	sort(idAndCluster,idAndCluster+n,compareAngle);
 
 	//Writing sorted data to tmp array
-	float dataTmp2Array[dataNum][attributeSize+3];
+	vector<float*> dataTmp2Array; //Cause it's to big array to do it the "normal way"
 	for(int i=0; i<dataNum; i++){
+		dataTmp2Array.push_back(new float[dataNum]);
 		for(int ii=0; ii<attributeSize+3; ii++){
 			dataTmp2Array[i][ii]=idAndCluster[i].vector[ii];
 		}
@@ -343,7 +353,6 @@ int main (int argc, char *arg[]){
 	for(int i = 0; i<dataNum; i++){
 		dataTmpSave[i] = new float[attributeSize+2];
 	    for (int ii=0; ii<attributeSize+1; ii++){
-	    	//dataTmpSave[i][ii]=data[i][ii];
 	    	dataTmpSave[i][ii]=dataOld[(int)data[i][attributeSize+2]][ii];
 	    }
 	    dataTmpSave[i][attributeSize+1]=data[i][attributeSize+1];
@@ -351,10 +360,10 @@ int main (int argc, char *arg[]){
 	writeData(dataTmpSave,dataNum,attributeSize+2,filePathOut);
 	cout<<"Data Saved"<<endl;
 
-	auto end = std::chrono::system_clock::now();
-	chrono::duration<double> elapsed_seconds = end-start;
+	end = std::chrono::system_clock::now();
+	elapsed_seconds = end-start;
 
-	cout<<"elapsed time: " << elapsed_seconds.count() << "s\n";
+	cout<<"Elapsed time [all]: " << elapsed_seconds.count() << "s\n";
 
 	return 0;
 }
