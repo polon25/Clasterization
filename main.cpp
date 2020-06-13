@@ -11,6 +11,7 @@
 #include <algorithm> //For sort()
 #include <chrono>
 #include <ctime>
+#include <list>
 
 using namespace std;
 
@@ -137,6 +138,12 @@ int main (int argc, char *arg[]){
 
 	cout<<"Starting clusterization process"<<endl;
 	int currentClusterID=0;
+	list<int> idLeft; //Id left to be used
+	for (int i=0; i<dataNum; i++){
+		idLeft.push_back(i);
+	}
+	list<int> idCheck; //Id sorted
+
 	//Main algorithm's loop
 
 	//First main loop -> searching for neighbors and making neighborMatrix
@@ -204,18 +211,30 @@ int main (int argc, char *arg[]){
 		for(int ii=0; ii<n; ii++){
 			if (idAndCosine[ii].euclideanDistance<=idAndCosine[kTmp-1].euclideanDistance){ //Check if in k+ neigborhood
 				neighborMatrix[i][idAndCosine[ii].id]=1; //Add to neighborMatrix
+				//Move id from list of all ids to list of "sorted" id
+				list<int>::iterator idIter=std::find(idLeft.begin(), idLeft.end(), idAndCosine[ii].id);
+				if(idIter!=idLeft.end()){
+					idCheck.push_back(*idIter);
+					idLeft.erase(idIter);
+				}
 			}
 			else
 				break;
 		}
 	}
 
+	//Add noise points to idCheck
+	for (int i:idLeft){
+		idCheck.push_back(i);
+	}
+	idLeft.clear();
+
 	cout<<"Neighbor matrix completed"<<endl;
 	cout<<"Starting cluster searching"<<endl;
 
 	//Second main loop -> clustering objects
 	//Only core points can initialize cluster, border points can be only added to already existing one
-	for (int i=0; i<dataNum; i++){
+	for (int i : idCheck){ //iterate through idCheck
 		double kn=0; double rkn=0;//k-neighoors and reversed k-neighoors
 
 		vector<int> neigborsIDs;
@@ -275,6 +294,7 @@ int main (int argc, char *arg[]){
 		}
 	}
 
+	idCheck.clear();
 	cout<<"Clasterization Complete"<<endl;
 
 	/*************************
