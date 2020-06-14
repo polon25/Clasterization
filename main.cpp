@@ -269,7 +269,7 @@ int main (int argc, char *arg[]){
 		//Check the class of object
 		//Only cores can create clusters (but borders can be added to them)
 
-		double ndf=(rkn>0)? kn/rkn : 0;
+		double ndf=(kn>0)? rkn/kn : 0;
 
 		if ((kn>=k) & (ndf>=1))
 			objectClassTable[i]=CORE;
