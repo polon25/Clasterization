@@ -35,10 +35,6 @@ int main (int argc, char *arg[]){
 	cout<<"Header's rows: "<<headerRows<<endl;
 	cout<<"Label columns: "<<labelColumns<<endl;
 	cout<<"Epsilon: "<<epsilon<<endl;
-	float borderAngle=acos(epsilon);
-	float borderEuclidean=sqrt(2-2*epsilon);
-	cout<<"Angle border: "<<borderAngle<<endl;
-	cout<<"Euclidean border: "<<borderEuclidean<<endl;
 	cout<<"k:"<<k<<endl<<endl;
 	cout<<"Reading file: "<<filePath<<endl;
 	vector<vector<string>> dataRaw=readData(filePath,headerRows,delimiter);
@@ -48,45 +44,24 @@ int main (int argc, char *arg[]){
 	cout<<"Data read properly"<<endl;
 	cout<<"Objects in data set: "<<dataNum<<endl<<endl;
 
+	int n=0; //For the sake of sorting
+
 	/**
 	 * Converting vector of data to the float array
 	 * with additional columns for length and cluster ID
 	 */
 
 	float data[dataNum][attributeSize+3];
-	float dataOld[dataNum][attributeSize+3];
 	for(int i=0; i<dataNum; i++){
 		float dataVector[attributeSize];
 		for(int ii=0; ii<attributeSize; ii++){
 			dataVector[ii]=stof(dataRaw[i][ii+labelColumns]);
 			data[i][ii]=dataVector[ii];
-			dataOld[i][ii]=dataVector[ii];
 		}
 		data[i][attributeSize]=vectorLength(dataVector,attributeSize);
 		data[i][attributeSize+1]=-1; //Initialize claster ID value with -1
 		data[i][attributeSize+2]=i; //Last cell -> original id
-		dataOld[i][attributeSize]=data[i][attributeSize];
-		dataOld[i][attributeSize+1]=-1; //Initialize claster ID value with -1
-		dataOld[i][attributeSize+2]=i; //Last cell -> original id
 	}
-
-	cout<<"Preparing data, normalization and sorting"<<endl;
-	//Normalize vector and calculate angle from vector [1,0,0,...,0]
-	for(int i=0; i<dataNum; i++){
-		for(int ii=0; ii<attributeSize; ii++){
-			data[i][ii]=data[i][ii]/data[i][attributeSize];
-		}
-
-		//Calculate angle from arbitrary vector, which will be the indicator of potential close vectors
-		data[i][attributeSize]=acos(data[i][0]);
-
-		//Commentary to this method (because it's a bigger thinking wrapped into one line of code)
-		//First we calculate the scalar product of two vectors, but because the second has only one nonzero part and it's equal 1,
-		//it will be equal simply to respective part of first vector.
-		//a x b = |a| |b| cos(alpha), but because they're both normalized, cos(alpha)=a x b = a[0]
-		//Than the angle in radians is calculated using acos
-	}
-	//At the end -> 2D array of vectors + angle from [1,0,0,...,0] + claster ID + original data ID
 
 	/**
 	 * Sorting data by angle from [1,0,0,...,0] vector
@@ -97,8 +72,8 @@ int main (int argc, char *arg[]){
 	for(int i=0; i<dataNum;i++){
 		dataArray[i]={data[i],data[i][attributeSize]};
 	}
-	int n = sizeof(dataArray)/sizeof(dataArray[0]);
-	sort(dataArray, dataArray+n, compareAngle);
+	n = sizeof(dataArray)/sizeof(dataArray[0]);
+	sort(dataArray, dataArray+n, compareLength);
 
 	//Writing sorted data to tmp array
 	float dataTmpArray[dataNum][attributeSize+3];
@@ -119,7 +94,6 @@ int main (int argc, char *arg[]){
 	chrono::duration<double> elapsed_seconds = end-start;
 	cout<<"Elapsed time: " << elapsed_seconds.count() << "s\n"<<endl;
 
-
 	cout<<"Create neighbor matrix"<<endl;
 
 	//Matrix of neighbors (0 - not neighbor, 1 - neighbor)
@@ -139,22 +113,12 @@ int main (int argc, char *arg[]){
 	 * k+ NBC clusterization using cosine measure
 	 */
 
-	int currentClusterID=0;
-	list<int> idLeft; //Id left to be used
-	list<int> idLoop1; //Id in first list
-	for (int i=0; i<dataNum; i++){
-		idLeft.push_back(i);
-		idLoop1.push_back(i);
-	}
-	list<int> idLoop2; //Id sorted
-
 	//Main algorithm's loop
 	//First main loop -> searching for neighbors and making neighborMatrix
-	//for (int i : idLoop1){ //Alternative
-	for (int i=1; i<dataNum; i++){
+	for (int i=0; i<dataNum; i++){
 		//Calculate boundary values for potential close vectors
-		float minAngle=data[i][attributeSize]-borderAngle;
-		float maxAngle=data[i][attributeSize]+borderAngle;
+		float minBorder=data[i][attributeSize]*epsilon;
+		float maxBorder=data[i][attributeSize]/epsilon;
 
 		/**
 		 * Analyzing cosine values of potential close vectors
@@ -163,16 +127,20 @@ int main (int argc, char *arg[]){
 
 		vector<objectInfo> closeVectors; //IDs of close vectors
 		for (int ii=i-1;ii>=0;ii--){
-			if(data[ii][attributeSize]>=minAngle){//If potential close vector
-				//Calculate Euclidean Distance
-				float sum=0;
+			if(data[ii][attributeSize]>=minBorder){//If potential close vector
+				//Calculate cosine value
+				float product=0;
 				for (int iii=0;iii<attributeSize;iii++){
-					float a=dataOld[(int)data[i][attributeSize+2]][iii]-dataOld[(int)data[ii][attributeSize+2]][iii];
-					sum+=a*a;
+					product+=data[i][iii]*data[ii][iii];
 				}
-				sum=sqrt(sum)/dataOld[(int)data[i][attributeSize+2]][attributeSize];
-				if (sum<=borderEuclidean){//Check if object is close enough
-					objectInfo object; object.id=ii; object.euclideanDistance=sum;
+				float cosineVal=product/(data[i][attributeSize]*data[ii][attributeSize]);
+				if (cosineVal>=epsilon){//Check if object is close enough
+					float distance=0;
+					for (int iii=0;iii<attributeSize;iii++){
+						float a=data[i][iii]-data[ii][iii];
+						distance+=a*a;
+					}
+					objectInfo object; object.id=ii; object.euclideanDistance=sqrt(distance);
 					closeVectors.push_back(object);
 				}
 			}
@@ -181,16 +149,20 @@ int main (int argc, char *arg[]){
 			}
 		}
 		for (int ii=i+1;ii<dataNum;ii++){
-			if(data[ii][attributeSize]<=maxAngle){//If potential close vector
-				//Calculate Euclidean Distance
-				float sum=0;
+			if(data[ii][attributeSize]<=maxBorder){//If potential close vector
+				//Calculate cosine value
+				float product=0;
 				for (int iii=0;iii<attributeSize;iii++){
-					float a=dataOld[(int)data[i][attributeSize+2]][iii]-dataOld[(int)data[ii][attributeSize+2]][iii];
-					sum+=a*a;
+					product+=data[i][iii]*data[ii][iii];
 				}
-				sum=sqrt(sum)/dataOld[(int)data[i][attributeSize+2]][attributeSize];
-				if (sum<=borderEuclidean){//Check if object is close enough
-					objectInfo object; object.id=ii; object.euclideanDistance=sum;
+				float cosineVal=product/(data[i][attributeSize]*data[ii][attributeSize]);
+				if (cosineVal>=epsilon){//Check if object is close enough
+					float distance=0;
+					for (int iii=0;iii<attributeSize;iii++){
+						float a=data[i][iii]-data[ii][iii];
+						distance+=a*a;
+					}
+					objectInfo object; object.id=ii; object.euclideanDistance=sqrt(distance);
 					closeVectors.push_back(object);
 				}
 			}
@@ -199,49 +171,30 @@ int main (int argc, char *arg[]){
 			}
 		}
 
-		//Sort neighboors by their euclidean distance
+		//Sort neighboors by their cosine value
 		objectInfo idAndCosine[closeVectors.size()]; //Object + cluster ID (as length, cause there's no need to create new class and functions)
 		for (int ii=0;ii<(int)closeVectors.size();ii++){
 			idAndCosine[ii].id=closeVectors[ii].id;
 			idAndCosine[ii].euclideanDistance=closeVectors[ii].euclideanDistance;
 		}
-		int n = sizeof(idAndCosine)/sizeof(idAndCosine[0]);
-		sort(idAndCosine, idAndCosine+n, compareObjects);
+		int ni = sizeof(idAndCosine)/sizeof(idAndCosine[0]);
+		sort(idAndCosine, idAndCosine+ni, compareObjects);
 
 		//If less neighbors then k
-		int kTmp=(k<n)? k : n;
+		int kTmp=(k<ni)? k : ni;
+
+		int kCounter=0;
 
 		//Add k+ neighbors to neighborMatrix
-		for(int ii=0; ii<n; ii++){
+		for(int ii=0; ii<ni; ii++){
 			if (idAndCosine[ii].euclideanDistance<=idAndCosine[kTmp-1].euclideanDistance){ //Check if in k+ neigborhood
 				neighborMatrix[i][idAndCosine[ii].id]=1; //Add to neighborMatrix
-				//Move id from list of all ids to list of "sorted" id
-				list<int>::iterator idIter=std::find(idLeft.begin(), idLeft.end(), idAndCosine[ii].id);
-				if(idIter!=idLeft.end()){
-					//Add to loop2 iteration
-					idLoop2.push_back(*idIter);
-					//Change to be just after current id in this loop
-					list<int>::iterator idIter1=std::find(idLoop1.begin(), idLoop1.end(), i);
-					list<int>::iterator idIter2=std::find(idLoop1.begin(), idLoop1.end(), idAndCosine[ii].id);
-					int tmp=*idIter2;
-					idLoop1.erase(idIter2);
-					idIter1++;
-					idLoop1.insert(idIter1,tmp);
-					//Remove id from 'to use' list
-					idLeft.erase(idIter);
-				}
+				kCounter++;
 			}
 			else
 				break;
 		}
 	}
-
-	//Add noise points to idCheck
-	for (int i:idLeft){
-		idLoop2.push_back(i);
-	}
-	idLeft.clear();
-	idLoop1.clear();
 
 	cout<<"Neighbor matrix completed"<<endl;
 	end = std::chrono::system_clock::now();
@@ -249,75 +202,74 @@ int main (int argc, char *arg[]){
 	cout<<"Elapsed time: " << elapsed_seconds.count() << "s\n";
 	cout<<endl;
 
-	int clasterCount=0; //"When it was clusterized" counter
-	cout<<"Starting clusterization"<<endl;
-	//Second main loop -> clustering objects
-	//Only core points can initialize cluster, border points can be only added to already existing one
-	for (int i : idLoop2){ //iterate through idCheck
+	//Calculate ndf and check the object class
+	for (int i=0;i<dataNum;i++){
 		double kn=0; double rkn=0;//k-neighoors and reversed k-neighoors
-
-		vector<int> neigborsIDs;
 
 		for (int ii=0; ii<dataNum; ii++){
 			kn+=neighborMatrix[i][ii];
 			rkn+=neighborMatrix[ii][i];
-			if (neighborMatrix[i][ii]>0){
-				neigborsIDs.push_back(ii);
-			}
 		}
 
 		//Check the class of object
 		//Only cores can create clusters (but borders can be added to them)
 
-		double ndf=(kn>0)? rkn/kn : 0;
+		double ndf=(rkn>0)? rkn/kn : 0;
 
 		if ((kn>=k) & (ndf>=1))
 			objectClassTable[i]=CORE;
-		else if ((kn>=k) & (ndf<1)){
+		else if ((kn>=k) & (ndf<1))
 			objectClassTable[i]=BORDER;
-			continue;
-		}
-		else{
+		else
 			objectClassTable[i]=NOISE;
-			continue;
-		}
-
-		/**
-		 * Clusterization:
-		 *
-		 * 1. Check if any of k close vectors is already in cluster
-		 * 2. If yes, than the ith object will be added to this cluster alongside other non clustered objects
-		 * 3. If no, create new cluster and add every neighbor
-		 */
-
-		//Check if any of k close vectors is already in cluster
-		int currentClusterIDTmp=currentClusterID;
-		for(int ii=0; ii<(int)neigborsIDs.size();ii++){
-			if (data[neigborsIDs[ii]][attributeSize+1]>=0){
-				currentClusterIDTmp=data[neigborsIDs[ii]][attributeSize+1];
-				data[neigborsIDs[ii]][attributeSize]=clasterCount;
-				clasterCount++;
-				break;
-			}
-		}
-
-		//Add ith object to the cluster alongside other non clustered objects
-		data[i][attributeSize+1]=currentClusterIDTmp;
-		for(int ii=0; ii<(int)neigborsIDs.size();ii++){
-			if (data[neigborsIDs[ii]][attributeSize+1]<0){
-				data[neigborsIDs[ii]][attributeSize+1]=currentClusterIDTmp;
-				data[neigborsIDs[ii]][attributeSize]=clasterCount;
-				clasterCount++;
-			}
-		}
-
-		//If new cluster was create, increase the future cluster ID by 1
-		if(currentClusterIDTmp==currentClusterID){
-			currentClusterID++;
-		}
 	}
 
-	idLoop2.clear();
+	int clasterCount=0; //"When it was clusterized" counter
+	int currentClusterID=0;
+	cout<<"Starting clusterization"<<endl;
+	//Second main loop -> clustering objects
+	//Only core points can initialize cluster, border points can be only added to already existing one
+	for (int i=1; i<dataNum; i++){ //iterate through idLoop2
+		//If not core or already in cluster, move to next
+		if ((objectClassTable[i]!=CORE)|(data[i][attributeSize+1]>=0))
+			continue;
+
+		/**
+		 * Clusterization
+		 */
+
+		list<int> corePoints;
+
+		data[i][attributeSize+1]=currentClusterID;
+		data[i][attributeSize]=clasterCount;
+		clasterCount++;
+		for (int ii=0; ii<dataNum; ii++){
+			if (neighborMatrix[i][ii]>0){
+				data[ii][attributeSize+1]=currentClusterID;
+				data[ii][attributeSize]=clasterCount;
+				clasterCount++;
+				if (objectClassTable[ii]==CORE)//if core point
+					corePoints.push_back(ii);
+			}
+		}
+
+		while(corePoints.front()){//iterate through all core points in cluster
+			//Check it's neighbors
+			for (int iii=0;iii<dataNum;iii++){
+				//If neighbor and outside cluster
+				if ((neighborMatrix[corePoints.front()][iii]>0)&(data[iii][attributeSize+1]<0)){
+					data[iii][attributeSize+1]=currentClusterID;
+					data[iii][attributeSize]=clasterCount;
+					clasterCount++;
+					if (objectClassTable[iii]==CORE)//If core, add to the loop iterations
+						corePoints.push_back(iii);
+				}
+			}
+			corePoints.pop_front();
+		}
+		currentClusterID++;
+	}
+
 	cout<<"Clasterization Complete"<<endl;
 	end = std::chrono::system_clock::now();
 	elapsed_seconds = end-start;
@@ -337,7 +289,7 @@ int main (int argc, char *arg[]){
 		idAndCluster[i].length=data[i][attributeSize+1];
 	}
 	n = sizeof(idAndCluster)/sizeof(idAndCluster[0]);
-	sort(idAndCluster,idAndCluster+n,compareAngle);
+	sort(idAndCluster,idAndCluster+n,compareLength);
 
 	//Writing sorted data to tmp array
 	vector<float*> dataTmp2Array; //Cause it's to big array to do it the "normal way"
@@ -371,7 +323,7 @@ int main (int argc, char *arg[]){
 	for(int i = 0; i<dataNum; i++){
 		dataTmpSave[i] = new float[attributeSize+2];
 	    for (int ii=0; ii<attributeSize+1; ii++){
-	    	dataTmpSave[i][ii]=dataOld[(int)data[i][attributeSize+2]][ii];
+	    	dataTmpSave[i][ii]=data[i][ii];
 	    }
 	    dataTmpSave[i][attributeSize]=data[i][attributeSize];
 	    dataTmpSave[i][attributeSize+1]=data[i][attributeSize+1];

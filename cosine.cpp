@@ -11,7 +11,7 @@ float vectorLength(float* dataVector,int length){
 	return sum;
 }
 
-bool compareAngle(dataVec data1, dataVec data2){
+bool compareLength(dataVec data1, dataVec data2){
     return (data1.length < data2.length);
 }
 bool compareClusters(clusterInfo cluster1, clusterInfo cluster2){
